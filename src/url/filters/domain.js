@@ -11,12 +11,22 @@ domain.addPrimary = function(url) {
 };
 
 domain.filter = function(url) {
-	if (url.primary) {
-		domain.addPrimary(url);
-		delete url.primary;
-	}
-	url = urlModule.parse(url.url);
-	return url.hostname in domain.primaryDomains;
+  var subDomains =  url.subDomains;
+
+  if (url.primary) {
+    domain.addPrimary(url);
+    delete url.primary;
+  }
+
+  url = urlModule.parse(url.url);
+
+  if (subDomains) {
+    if (url.protocol === 'data:') {
+      return false;
+    }
+    return true;
+  }
+  return url.hostname in domain.primaryDomains;
 };
 
 module.exports = domain;

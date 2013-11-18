@@ -22,13 +22,16 @@ var urlToPath = require('./url/urlToPath');
  * @param [config.crawlerPerThread=1] {integer}
  * @param [config.pageTransform] {Array}
  * @param [config.plugins] {Array}
+ * @param [config.subDomains] {Boolean} Download resources from subdomains and third domains, Default is False
  * @param [config.phantomPath] {String} Path of the phantom executable. Default is to use the bundled phantomjs.
  */
 var PhantomCrawl = function(config) {
 	this.config = config;
 	urlToPath.setBase(config.base || 'extract');
-	
+
 	urlStore.setFilters(config.urlFilters);
+	urlStore.setSubdomains(config.subDomains || false);
+
 	config.urls.forEach(function(url) {
 		urlStore.add({
 			url: url,

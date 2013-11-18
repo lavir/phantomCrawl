@@ -43,6 +43,10 @@ urlStore.setFilters = function(filters) {
 	this.urlFilters = filters;
 };
 
+urlStore.setSubdomains = function(subDomains) {
+  this.subDomains = subDomains;
+};
+
 /**
  * Add an url to the list of URLs to crawl
  * 
@@ -89,6 +93,7 @@ urlStore.normalise = function(url) {
 	url.crashed = url.crashed || 0;
 	url.primary = url.primary || false;
 	url.mime = url.mime || undefined;
+	url.subDomains = this.subDomains;
 };
 
 urlStore.getPage = function(cb) {
