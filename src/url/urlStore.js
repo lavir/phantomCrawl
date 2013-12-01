@@ -149,11 +149,11 @@ client.on("error", function (err) {
 });
 
 urlStore.setUrlMap = function(key, value, cb) {
-  client.set('map' + '-' + key, value, redis.print);
+  client.set('map' + '-' + key, value, cb || redis.print);
 };
 
 urlStore.getUrlMap = function(key, cb) {
-  client.get('map' + '-' + key, redis.print);
+  client.get('map' + '-' + key, cb || redis.print);
 };
 
 urlStore.setUrlX = function(type, value, cb) {
@@ -162,7 +162,7 @@ urlStore.setUrlX = function(type, value, cb) {
     this.setUrlMap(value, type);
   } else {
     value = JSON.stringify(value);
-    client.rpush(type, value, redis.print);
+    client.rpush(type, value, cb || redis.print);
   }
 };
 
