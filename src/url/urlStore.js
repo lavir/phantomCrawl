@@ -6,6 +6,9 @@ var smpl = require('smpl');
 
 var urlToPath = require('./urlToPath');
 var urlType = require('./urlType');
+var redis = require("redis");
+
+var client = redis.createClient();
 
 var DEFAULT_FILTERS = ['domain', 'level', 'crash'];
 var STANDARD_FILTERS = {
@@ -59,19 +62,39 @@ urlStore.setSubdomains = function(subDomains) {
  * @param [url.mime] {String} If mime type is known, it need to be set
  * @param force {boolean} Set it to true if ressubmiting an url that had the wrong type. `url.mime` is mandatory in that case
  */
+
+//urlStore.add = function(url, force) {
+//	if ((force || !this.urlMap[url.path]) && this.isValid(url)) {
+//		var type = url.crashed ? 'CrashedPages' :
+//		           urlType.isPage(url) ? 'Pages' :
+//		           'Ressources';
+//		this.urlMap[url.path] = type;
+//
+//		var cb = this['cb' + type];
+//		if (cb.length) {
+//			this.call(cb.shift(), url, type);
+//		} else {
+//			var list = this['url' + type];
+//			list.push(url);
+//		}
+//		return true;
+//	}
+//	return false;
+//};
+
 urlStore.add = function(url, force) {
-	if ((force || !this.urlMap[url.path]) && this.isValid(url)) {
+	if ((force || !this.getUrlMap(url.path)) && this.isValid(url)) {
 		var type = url.crashed ? 'CrashedPages' :
 		           urlType.isPage(url) ? 'Pages' :
 		           'Ressources';
-		this.urlMap[url.path] = type;
-		
+
+    this.setUrlX('Map', url.path, type);
+
 		var cb = this['cb' + type];
 		if (cb.length) {
 			this.call(cb.shift(), url, type);
 		} else {
-			var list = this['url' + type];
-			list.push(url);
+      this.setUrlX(type, url);
 		}
 		return true;
 	}
@@ -87,7 +110,9 @@ urlStore.isValid = function(url) {
 };
 
 urlStore.normalise = function(url) {
+  console.log(' •', url.url);
 	url.url = urlModule.format(urlModule.parse(url.url));
+  console.log('••', url.url);
 	url.path = urlToPath.getPath(url.url);
 	url.level = url.level || 0;
 	url.crashed = url.crashed || 0;
@@ -116,23 +141,70 @@ urlStore.getRessource = function(cb) {
 	this.get('Ressources', cb);
 };
 
+/*
+  Redis
+ */
+client.on("error", function (err) {
+  console.log("Error:", err);
+});
+
+urlStore.setUrlMap = function(key, value, cb) {
+  client.set('map' + '-' + key, value, redis.print);
+};
+
+urlStore.getUrlMap = function(key, cb) {
+  client.get('map' + '-' + key, redis.print);
+};
+
+urlStore.setUrlX = function(type, value, cb) {
+  console.log(">", type, ":", value);
+  if (type === 'Map') {
+    this.setUrlMap(value, type);
+  } else {
+    value = JSON.stringify(value);
+    client.rpush(type, value, redis.print);
+  }
+};
+
+urlStore.getListUrlRnd = function(type) {
+  var rnd = smpl.number.randomInt(0, this.getLenOfList(type));
+  return JSON.stringify(eval('(' + client.lrange(type, rnd, 1, redis.print) + ')'));
+};
+
+urlStore.getLenOfList = function(type) {
+  console.log("getLenOfList", type, client.llen(type));
+  return client.llen(type);
+}
+
 /**
- * 
+ *
  * @method get
  *
  * @private
  */
+//urlStore.get = function(type, cb) {
+//	var list = this['url' + type];
+//
+//	if (list.length) {
+//		var url = list.splice(smpl.number.randomInt(0, list.length), 1)[0];
+//		this.call(cb, url, type);
+//	} else {
+//		var cbList = this['cb' + type];
+//		cbList.push(cb);
+//	}
+//};
+
 urlStore.get = function(type, cb) {
-	var list = this['url' + type];
-	if (list.length) {
-		var url = list.splice(smpl.number.randomInt(0, list.length), 1)[0];
+  console.log("urlStore.get", type);
+	if (this.getLenOfList(type)) {
+    console.log("---", this.getListUrlRnd(type));
+		var url = urlStore.getListUrlRnd(type);
 		this.call(cb, url, type);
 	} else {
 		var cbList = this['cb' + type];
 		cbList.push(cb);
 	}
 };
-
 /**
  * 
  * @method cancelGet
@@ -150,7 +222,7 @@ urlStore.cancelGet = function(type, callback) {
 };
 
 urlStore.isEmpty = function() {
-	return this.urlRessources.length + this.urlPages.length + this.urlCrashedPages.length + this.ongoingCallbacks.length === 0;
+	return this.getLenOfList("Ressources") + this.getLenOfList("Pages") + this.getLenOfList("CrashedPages") + this.ongoingCallbacks.length === 0;
 };
 
 /**
