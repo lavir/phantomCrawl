@@ -168,10 +168,11 @@ Crawler.prototype.crashed = function() {
 	this.phantomCrashed = true;
 	
 	var url = smpl.object.update({}, this.config.url);
-	url.crashed++;
-	urlStore.add(url, true);
-	
-	this.close('phantom crashed');
+	var _this = this;
+  url.crashed++;
+	urlStore.add(url, true).then(function(){
+    _this.close('phantom crashed');
+  });
 };
 
 Crawler.prototype.exec = function(fn, cb, order) {

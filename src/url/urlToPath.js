@@ -21,6 +21,7 @@ urlToPath.getPath = function(url) {
 		// Last part looks like a folder
 		path.push('index.html');
 	}
+  console.log("• path:",path);
 	return pathModule.join.apply(null, path);
 };
 

@@ -24,8 +24,11 @@ DetectRedirects.prototype.onResourceReceived = function (response) {
 		if (response.redirectURL) {
 			var url = smpl.object.update({}, this.crawler.config.url);
 			url.url = response.redirectURL;
-			urlStore.add(url);
-			this.crawler.close('Redirect to ' + response.redirectURL);
+      var _this = this;
+			urlStore.add(url).then(function(){
+        _this.crawler.close('Redirect to ' + response.redirectURL);
+      });
+
 		}
 	}
 };

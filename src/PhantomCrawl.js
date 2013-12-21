@@ -1,19 +1,53 @@
 'use strict';
 
 var fs = require('fs');
-
+var redis = require("redis");
+var client = redis.createClient();
 
 var CrawlerThread = require('./crawler/CrawlerThread');
 var RessourceCrawler = require('./crawler/RessourceCrawler');
 var urlStore = require('./url/urlStore');
 var urlToPath = require('./url/urlToPath');
 
+var NRP = require('node-redis-pubsub')
+  , psConfig = { port: 6379
+             , scope: 'pubsub'
+             }
+  , nrp = new NRP(psConfig);
+
+process.on('uncaughtException', function (error) {
+   console.log("ERROR:", error.stack);
+});
+process.stderr.on('data', function(err){
+  console.log(err);
+});
+
+/**
+ * Subscribers
+ */
+
+// Waits a new task
+var nn;
+nrp.on('echo:newTask', function (data) {
+  client.lpop('tasks', function (err, reply) {
+      var task_config = JSON.parse(reply);
+      console.log('Got the new task', reply);
+     nn = new PhantomCrawl(task_config);
+    }
+  );
+});
+
+/**
+*   Publishers
+*/
+
+
 /**
  * @class PhantomCrawl
  * @constructor
  *
  * @param config {Object}
- * @param config.urls {Array.string} Urls to crawl
+ * @param config.url {string} Url to crawl
  * @param [config.base='extract'] {string} path of the folder to store extracts
  * @param [config.urlFilters] {Array}
  * @param [config.maxDepth=0] {integer}
@@ -26,37 +60,44 @@ var urlToPath = require('./url/urlToPath');
  * @param [config.phantomPath] {String} Path of the phantom executable. Default is to use the bundled phantomjs.
  */
 var PhantomCrawl = function(config) {
+  console.log("config", config);
 	this.config = config;
 	urlToPath.setBase(config.base || 'extract');
 
 	urlStore.setFilters(config.urlFilters);
 	urlStore.setSubdomains(config.subDomains || false);
 
-	config.urls.forEach(function(url) {
-		urlStore.add({
-			url: url,
+  var _this = this;
+  urlStore.add({
+			url: config.url,
 			primary: true,
 			level: 0
-		});
-	});
-	if (urlStore.isEmpty()) throw new Error('no urls to crawl');
-	
-	if (config.maxDepth) require('./url/filters/level').setMaxLevel(config.maxDepth);
-		
-	config.userAgent = config.userAgent || 'Mozilla/5.0 (PhantomCrawl/' + require('../package.json').version + '; bot) AppleWebKit/534.34(KHTML, like Gecko) Chrome/13.0.764.0';
-	this.threads = [];
-	var nbThreads = config.nbThreads || 1;
-	while (nbThreads--) {
-		this.startThread();
-	}
-	var rc = new RessourceCrawler({
-		userAgent: config.userAgent
-	});
-	rc.on('idle', this.checkFinish.bind(this));
-	this.threads.push(rc);
+		}).then(function() {
+      console.log("TADA");
+      // TODO: use reject or catch for this
+      //	if (urlStore.isEmpty()) throw new Error('no urls to crawl');
+      if (config.maxDepth) require('./url/filters/level').setMaxLevel(config.maxDepth);
+
+      config.userAgent = config.userAgent || 'Mozilla/5.0 (PhantomCrawl/' + require('../package.json').version + '; bot) AppleWebKit/534.34(KHTML, like Gecko) Chrome/13.0.764.0';
+
+      _this.threads = [];
+      var nbThreads = config.nbThreads || 1;
+      while (nbThreads--) {
+      		_this.startThread();
+      }
+
+      var rc = new RessourceCrawler({
+        userAgent: config.userAgent
+      });
+      rc.on('idle', _this.checkFinish.bind(_this));
+      _this.threads.push(rc);
+    }).catch(function(error) {
+      console.log("Failed!", error);
+    });
 };
 
 PhantomCrawl.prototype.startThread = function(crashRecover) {
+  console.log("Starting the new thread");
 	var thread = new CrawlerThread({
 		crashRecover: crashRecover,
 		nbCrawlers: crashRecover ? 1 : this.config.crawlerPerThread,
@@ -89,8 +130,10 @@ PhantomCrawl.prototype.checkFinish = function() {
 	if (!urlStore.isEmpty()) return;
 	
 	console.log('Crawl done. Exiting');
+  console.log("Opened thread:", this.threads.length);
 	for (i = 0; i < this.threads.length; i++) {
 		this.threads[i].exit();
+    console.log("Thread #" + i + " exit");
 	}
 };
 

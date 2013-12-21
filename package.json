@@ -18,7 +18,9 @@
 		"node-fs": "~0.1.5",
 		"node-phantom": "https://github.com/vmeurisse/node-phantom/archive/56a10de0b3dddb4645bb3dadd98ed437aca6a9c4.tar.gz",
 		"phantomjs": "1.8.2-2",
-		"smpl": "0.2.0-alpha2"
+		"smpl": "0.2.0-alpha2",
+    "redis": "",
+    "es6-promise": ""
 	},
 	"devDependencies": {
 		"smpl-build-test": "~0.5.0",

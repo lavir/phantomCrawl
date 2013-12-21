@@ -1,12 +1,12 @@
 'use strict';
 
 var urlModule = require('url');
-
 var smpl = require('smpl');
 
 var urlToPath = require('./urlToPath');
 var urlType = require('./urlType');
 var redis = require("redis");
+var Promise = require('es6-promise').Promise;
 
 var client = redis.createClient();
 
@@ -63,45 +63,45 @@ urlStore.setSubdomains = function(subDomains) {
  * @param force {boolean} Set it to true if ressubmiting an url that had the wrong type. `url.mime` is mandatory in that case
  */
 
-//urlStore.add = function(url, force) {
-//	if ((force || !this.urlMap[url.path]) && this.isValid(url)) {
-//		var type = url.crashed ? 'CrashedPages' :
-//		           urlType.isPage(url) ? 'Pages' :
-//		           'Ressources';
-//		this.urlMap[url.path] = type;
-//
-//		var cb = this['cb' + type];
-//		if (cb.length) {
-//			this.call(cb.shift(), url, type);
-//		} else {
-//			var list = this['url' + type];
-//			list.push(url);
-//		}
-//		return true;
-//	}
-//	return false;
-//};
-
 urlStore.add = function(url, force) {
-	if ((force || !this.getUrlMap(url.path)) && this.isValid(url)) {
-		var type = url.crashed ? 'CrashedPages' :
-		           urlType.isPage(url) ? 'Pages' :
-		           'Ressources';
+  var _this = this;
+  return new Promise(function(resolve, reject) {
+    console.log("urlStore.add, url:",url);
 
-    this.setUrlX('Map', url.path, type);
+    _this.getUrlMap(url.path).then(function(urlConfig) {
+      console.log("Ok!", urlConfig);
 
-		var cb = this['cb' + type];
-		if (cb.length) {
-			this.call(cb.shift(), url, type);
-		} else {
-      this.setUrlX(type, url);
-		}
-		return true;
-	}
-	return false;
+        if ((force || !urlConfig) && _this.isValid(url)) {
+		      var type = url.crashed ? 'CrashedPages' :
+		                 urlType.isPage(url) ? 'Pages' :
+		                 'Ressources';
+          console.log("url, type", url, type);
+          return([url, type]);
+        }
+          reject(false);
+    }).then(function(urlAndType) {
+        var url = urlAndType[0];
+        var type = urlAndType[1];
+        console.log("dsadas url.path, type:",url, type);
+
+        _this.setUrlMap(url.path, type).then(function() {
+          console.log("dsadas -2");
+          var cb = _this['cb' + type];
+          if (cb.length) {
+            _this.call(cb.shift(), url, type);
+            resolve(true);
+          } else {
+            _this.setUrlX(type, url).then(function(){
+            resolve(true);
+            });
+          }
+        });
+      });
+  });
 };
 
 urlStore.isValid = function(url) {
+  console.log("urlStore.isValid");
 	this.normalise(url);
 	for (var i = 0; i < this.urlFilters.length; i++) {
 		if (!this.urlFilters[i].filter(url)) return false;
@@ -148,32 +148,70 @@ client.on("error", function (err) {
   console.log("Error:", err);
 });
 
-urlStore.setUrlMap = function(key, value, cb) {
-  client.set('map' + '-' + key, value, cb || redis.print);
+urlStore.setUrlMap = function(key, value) {
+  console.log("Callback", key, value);
+  return new Promise(function(resolve, reject){
+    client.set('map' + '-' + key, value, function(err, replies) {
+      console.log("setUrlMap:replies:", replies);
+      if (replies === 'OK') {
+        resolve(true);
+      } else {
+        console.log("Err", err);
+        reject(false);
+      }
+    });
+  });
+
 };
 
-urlStore.getUrlMap = function(key, cb) {
-  client.get('map' + '-' + key, cb || redis.print);
+urlStore.getUrlMap = function(key) {
+  console.log("getUrlMap, key", key);
+  return new Promise(function(resolve, reject) {
+    client.get('map' + '-' + key, function (err, replies) {
+      console.log("urlStore.getUrlMap", replies);
+//      if (replies) {
+        resolve(replies);
+//      } else {
+//        reject(Error(err));
+//      }
+    });
+  });
 };
 
-urlStore.setUrlX = function(type, value, cb) {
-  console.log(">", type, ":", value);
-  if (type === 'Map') {
-    this.setUrlMap(value, type);
-  } else {
+urlStore.setUrlX = function(type, value) {
+  console.log("urlStore.setUrlX", type, value);
+  return new Promise(function(resolve, reject) {
     value = JSON.stringify(value);
-    client.rpush(type, value, cb || redis.print);
-  }
+    client.rpush(type, value, function(err, replies) {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(replies);
+      }
+    });
+  });
 };
 
 urlStore.getListUrlRnd = function(type) {
-  var rnd = smpl.number.randomInt(0, this.getLenOfList(type));
-  return JSON.stringify(eval('(' + client.lrange(type, rnd, 1, redis.print) + ')'));
+  return this.getLenOfList(type).then(function(lenOfList) {
+    return client.lrange(type, smpl.number.randomInt(0, lenOfList), 1, redis.print)
+  }).then(function(valueString) {
+      return JSON.parse(valueString);
+  });
 };
 
 urlStore.getLenOfList = function(type) {
-  console.log("getLenOfList", type, client.llen(type));
-  return client.llen(type);
+  console.log("getLenOfList", type);
+  return new Promise(function(resolve, reject) {
+    client.llen(type, function(err, replies) {
+      if (err) {
+        reject(0);
+      } else {
+        console.log("getLenOfList", replies);
+        resolve(replies);
+      }
+    });
+  });
 }
 
 /**
@@ -198,8 +236,12 @@ urlStore.get = function(type, cb) {
   console.log("urlStore.get", type);
 	if (this.getLenOfList(type)) {
     console.log("---", this.getListUrlRnd(type));
-		var url = urlStore.getListUrlRnd(type);
-		this.call(cb, url, type);
+    var _this = this;
+		var url = urlStore.getListUrlRnd(type, function(err, url){
+      console.log("2. this, cb, url, type",_this, cb, url, type);
+      _this.call(cb, url, type);
+    });
+
 	} else {
 		var cbList = this['cb' + type];
 		cbList.push(cb);
@@ -222,7 +264,24 @@ urlStore.cancelGet = function(type, callback) {
 };
 
 urlStore.isEmpty = function() {
-	return this.getLenOfList("Ressources") + this.getLenOfList("Pages") + this.getLenOfList("CrashedPages") + this.ongoingCallbacks.length === 0;
+  var _this = this;
+  return new Promise(function(resolve, reject) {
+    _this.getLenOfList("Ressources").then(function(lenOfList) {
+      _this.getLenOfList("Pages").then(function(lenOfList2) {
+        return (lenOfList + lenOfList2);
+      }).then(function(lenOfList) {
+          _this.getLenOfList("CrashedPages").then(function(lenOfList2) {
+            lenOfList = lenOfList + lenOfList2 + _this.ongoingCallbacks.length;
+            if (lenOfList === 0) {
+              resolve(true);
+            } else {
+              resolve(false);
+            }
+          })
+        })
+    })
+  });
+//	return this.getLenOfList("Ressources") + this.getLenOfList("Pages") + this.getLenOfList("CrashedPages") + this.ongoingCallbacks.length === 0;
 };
 
 /**
