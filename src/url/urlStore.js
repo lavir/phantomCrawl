@@ -122,7 +122,11 @@ urlStore.normalise = function(url) {
 };
 
 urlStore.getPage = function(cb) {
-	this.get('Pages', cb);
+  var _this = this;
+  return new Promise(function(resolve, reject) {
+    _this.get('Pages', cb);
+  });
+
 };
 
 urlStore.cancelGetPage = function(cb) {
@@ -130,7 +134,10 @@ urlStore.cancelGetPage = function(cb) {
 };
 
 urlStore.getCrashedPage = function(cb) {
-	this.get('CrashedPages', cb);
+  var _this = this;
+  return new Promise(function(resolve, reject) {
+	  _this.get('CrashedPages', cb);
+  });
 };
 
 urlStore.cancelCrashedPage = function(cb) {
@@ -138,7 +145,12 @@ urlStore.cancelCrashedPage = function(cb) {
 };
 
 urlStore.getRessource = function(cb) {
-	this.get('Ressources', cb);
+  console.log("Get Ressources", cb);
+  var _this = this;
+  return new Promise(function(resolve, reject) {
+    _this.get('Ressources', cb);
+  });
+
 };
 
 /*
@@ -192,22 +204,31 @@ urlStore.setUrlX = function(type, value) {
   });
 };
 
-urlStore.getListUrlRnd = function(type) {
-  return this.getLenOfList(type).then(function(lenOfList) {
-    return client.lrange(type, smpl.number.randomInt(0, lenOfList), 1, redis.print)
-  }).then(function(valueString) {
-      return JSON.parse(valueString);
+urlStore.getListUrlRnd = function(type, lenOfList) {
+  console.log("urlStore.getListUrlRnd: type:", type, lenOfList);
+  return new Promise(function(resolve, reject){
+    var rndNum = smpl.number.randomInt(0, lenOfList-1);
+    client.lrange(type, rndNum, rndNum, function(err, replies) {
+      console.log("-client.lrange", replies, err, type);
+      if (replies.length) {
+        console.log("resolve(JSON.parse(replies));", replies);
+        resolve(JSON.parse(replies));
+      } else {
+        reject(type + "is empty!");
+      }
+    })
   });
 };
 
 urlStore.getLenOfList = function(type) {
-  console.log("getLenOfList", type);
+  console.log("getLenOfList type:", type);
   return new Promise(function(resolve, reject) {
     client.llen(type, function(err, replies) {
       if (err) {
+        console.log("getLenOfList reject", err);
         reject(0);
       } else {
-        console.log("getLenOfList", replies);
+        console.log("getLenOfList return", replies);
         resolve(replies);
       }
     });
@@ -233,19 +254,22 @@ urlStore.getLenOfList = function(type) {
 //};
 
 urlStore.get = function(type, cb) {
-  console.log("urlStore.get", type);
-	if (this.getLenOfList(type)) {
-    console.log("---", this.getListUrlRnd(type));
-    var _this = this;
-		var url = urlStore.getListUrlRnd(type, function(err, url){
-      console.log("2. this, cb, url, type",_this, cb, url, type);
-      _this.call(cb, url, type);
-    });
+  console.log("urlStore.get", type, cb);
+  var _this = this;
+  this.getLenOfList(type).then(function(lenOfList){
+    console.log("got getLenOfList", lenOfList);
+    if (lenOfList) {
+      console.log("got getLenOfList - 2", type, lenOfList);
+      urlStore.getListUrlRnd(type, lenOfList).then(function(url) {
+        console.log("2. cb, url, type", cb, url, type);
+        _this.call(cb, url, type);
+      });
+    } else {
+      var cbList = this['cb' + type];
+      cbList.push(cb);
+    }
+  });
 
-	} else {
-		var cbList = this['cb' + type];
-		cbList.push(cb);
-	}
 };
 /**
  * 

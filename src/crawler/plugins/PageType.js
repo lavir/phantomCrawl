@@ -21,8 +21,11 @@ PageType.prototype.onResourceReceived = function (response) {
 		if (response.contentType && !urlType.isPageMime(response.contentType)) {
 			var url = this.crawler.config.url;
 			url.mime = response.contentType;
-			urlStore.add(url, true);
-			this.crawler.close('Invalide mime ' + response.contentType);
+      var _this = this;
+			urlStore.add(url, true).then(function(){
+        _this.crawler.close('Invalide mime ' + response.contentType);
+      });
+
 		}
 	}
 };

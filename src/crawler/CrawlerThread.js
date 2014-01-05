@@ -30,12 +30,13 @@ var CrawlerThread = function(config) {
 	this.userAgent = config.userAgent;
 	
 	this.startCrawling = this.startCrawling.bind(this);
-	
+
 	require('node-phantom').create(this.phantomStarted.bind(this), {phantomPath: config.phantomPath || require('phantomjs').path});
 };
 util.inherits(CrawlerThread, EventEmitter);
 
 CrawlerThread.prototype.phantomStarted = function(err, phantom) {
+  console.log("CrawlerThread.prototype.phantomStarted");
 	if (err) throw err;
 	
 	this.onPhantomExit = this.phantomExit.bind(this);
@@ -51,12 +52,22 @@ CrawlerThread.prototype.phantomStarted = function(err, phantom) {
 
 CrawlerThread.prototype.requestUrl = function() {
 	if (!this.urlRequestRunning && !this.exited) {
-		urlStore[this.config.crashRecover ? 'getCrashedPage' : 'getPage'](this.startCrawling);
-		this.urlRequestRunning = true;
+    var _this = this;
+    if (this.config.crashRecover) {
+      urlStore.getCrashedPage(this.startCrawling).then(function(err, replies) {
+        _this.urlRequestRunning = true;
+      });
+    } else {
+      urlStore.getPage(this.startCrawling).then(function(err, replies) {
+        _this.urlRequestRunning = true;
+      });
+    }
+
 	}
 };
 
 CrawlerThread.prototype.startCrawling = function(url) {
+  console.log("startCrawling", url);
 	this.urlRequestRunning = false;
 	
 	this.nbCrawlers++;

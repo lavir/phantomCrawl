@@ -9,7 +9,7 @@ redis.debug_mode = true;
 
 nrp = new NRP(config)
 
-client.on("connect", () ->
+client.on("ready", () ->
 	console.log "Connected to the Redis server"
 
 	nrp.on('echo:newTask', (data) ->
@@ -23,8 +23,8 @@ client.on("connect", () ->
 	console.log "Send the new URL"
 	client.lpush 'tasks', JSON.stringify({
 		url: 'http://www.verkkokauppa.com/'
-		nbThreads: 4
-		crawlerPerThread: 4
+		nbThreads: 1
+		crawlerPerThread: 1
 		maxDepth: 1
 		subDomains: false
 	}), () ->

@@ -20,8 +20,11 @@ util.inherits(CrawlerThread, EventEmitter);
 
 CrawlerThread.prototype.requestUrl = function() {
 	if (!this.urlRequestRunning) {
-		urlStore.getRessource(this.startCrawling.bind(this));
-		this.urlRequestRunning = true;
+    var _this = this;
+		urlStore.getRessource(this.startCrawling.bind(this)).then(function() {
+      _this.urlRequestRunning = true;
+    });
+
 	}
 };
 
@@ -45,7 +48,7 @@ CrawlerThread.prototype.startCrawling = function(url) {
 
 CrawlerThread.prototype.crawlDone = function(id, url, res) {
 	this.crawling = false;
-	
+  console.log("• CrawlerThread.prototype.crawlDone: id, url, res", id, url, res);
 	if (url === 'error') {
 		console.log('[' + id + '] done (error ' + res.message + ')');
 	} else if (res.statusCode >= 200 && res.statusCode < 300) {
@@ -53,7 +56,11 @@ CrawlerThread.prototype.crawlDone = function(id, url, res) {
 		if (mime && urlType.isPageMime(mime)) {
 			console.log('[' + id + '] done (bad type ' + mime + ')');
 			url.mime = mime;
-			urlStore.add(url, true);
+      var _this = this;
+			urlStore.add(url, true).then(function() {
+        _this.emit('idle');
+	      _this.requestUrl();
+      });
 		} else {
 			console.log('[' + id + '] receiving ressource');
 			res.setEncoding('binary');
@@ -70,10 +77,14 @@ CrawlerThread.prototype.crawlDone = function(id, url, res) {
 		
 	} else if (res.statusCode >= 300 && res.statusCode < 400) {
 		console.log('[' + id + '] done (redirect to ' + res.headers.location + ')');
+    var _this = this;
 		urlStore.add({
 			url: res.headers.location,
 			level: url.level
-		});
+		}).then(function() {
+        _this.emit('idle');
+	      _this.requestUrl();
+      });
 	} else {
 		console.log('[' + id + '] done (error ' + res.statusCode + ')');
 	}
