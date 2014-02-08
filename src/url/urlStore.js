@@ -78,7 +78,7 @@ urlStore.add = function(url, force) {
           console.log("url, type", url, type);
           return([url, type]);
         }
-          reject(false);
+        reject(false);
     }).then(function(urlAndType) {
         var url = urlAndType[0];
         var type = urlAndType[1];

@@ -104,7 +104,7 @@ Crawler.prototype.onPageCreated = function(err, page) {
 
 Crawler.prototype.onPageSettings = function() {
 	this.on('newListener', this.onNewListener.bind(this));
-	this.on('removeListener', this.onRemoveListener.bind(this));
+	this.on('removeEventListener', this.onRemoveListener.bind(this));
 	
 	this.plugins.forEach(function(Plugin) {
 		new Plugin(this);
@@ -148,7 +148,7 @@ Crawler.prototype.close = function(reason) {
 		
 		this.emit('close');
 
-		this.config.thread.removeListener('crash', this.onCrash);
+		this.config.thread.removeEventListener('crash', this.onCrash);
 		this.removeAllListeners();
 		
 		if (!this.phantomCrashed) {

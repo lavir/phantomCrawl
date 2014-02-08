@@ -19,7 +19,7 @@ DetectRedirects.prototype.onResourceReceived = function (response) {
 	if(response.stage !== 'end') return;
 	
 	if (response.id === this.initialResourceId) {
-		this.crawler.removeListener('resourceReceived', this.onResourceReceived);
+		this.crawler.removeEventListener('resourceReceived', this.onResourceReceived);
 		
 		if (response.redirectURL) {
 			var url = smpl.object.update({}, this.crawler.config.url);

@@ -62,8 +62,8 @@ nrp.on('echo:newTask', function (data) {
 var PhantomCrawl = function(config) {
   console.log("config", config);
 	this.config = config;
-	urlToPath.setBase(config.base || 'extract');
 
+	urlToPath.setBase(config.base || 'extract');
 	urlStore.setFilters(config.urlFilters);
 	urlStore.setSubdomains(config.subDomains || false);
 

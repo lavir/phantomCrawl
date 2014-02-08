@@ -32,6 +32,7 @@ var CrawlerThread = function(config) {
 	this.startCrawling = this.startCrawling.bind(this);
 
 	require('node-phantom').create(this.phantomStarted.bind(this), {phantomPath: config.phantomPath || require('phantomjs').path});
+  console.log("Phantom should been started");
 };
 util.inherits(CrawlerThread, EventEmitter);
 
@@ -103,7 +104,7 @@ CrawlerThread.prototype.exit = function() {
 		// We might exit before phantom had time to start (eg. crawling only one image)
 		this.doExit = true;
 	} else {
-		this.phantom.removeListener('exit', this.onPhantomExit);
+		this.phantom.removeEventListener('exit', this.onPhantomExit);
 		this.phantom.exit();
 	}
 };
