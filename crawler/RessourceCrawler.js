@@ -48,7 +48,7 @@ CrawlerThread.prototype.startCrawling = function(url) {
 
 CrawlerThread.prototype.crawlDone = function(id, url, res) {
 	this.crawling = false;
-  console.log("• CrawlerThread.prototype.crawlDone: id, url, res", id, url);
+  console.log("• CrawlerThread.prototype.crawlDone: id, url, res.statusCode", id, url, res.statusCode);
 	if (url === 'error') {
 		console.log('[' + id + '] done (error ' + res.message + ')');
 	} else if (res.statusCode >= 200 && res.statusCode < 300) {

@@ -42,7 +42,6 @@ CrawlerThread.prototype.phantomStarted = function(err, phantom) {
 	
 	this.onPhantomExit = this.phantomExit.bind(this);
 	phantom.on('exit', this.onPhantomExit);
-
 	this.phantom = phantom;
 	if (this.doExit) {
 		this.exit();

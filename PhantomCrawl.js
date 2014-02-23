@@ -28,6 +28,7 @@ process.stderr.on('data', function(err){
 
 // Waits a new task
 var nn;
+/*
 nrp.on('echo:newTask', function (data) {
   client.lpop('tasks', function (err, reply) {
       var task_config = JSON.parse(reply);
@@ -36,6 +37,7 @@ nrp.on('echo:newTask', function (data) {
     }
   );
 });
+*/
 
 /**
 *   Publishers
@@ -78,7 +80,7 @@ var PhantomCrawl = function(config) {
       //	if (urlStore.isEmpty()) throw new Error('no urls to crawl');
       if (config.maxDepth) require('./url/filters/level').setMaxLevel(config.maxDepth);
 
-      config.userAgent = config.userAgent || 'Mozilla/5.0 (PhantomCrawl/' + require('../package.json').version + '; bot) AppleWebKit/534.34(KHTML, like Gecko) Chrome/13.0.764.0';
+      config.userAgent = config.userAgent || 'Mozilla/5.0 (PhantomCrawl/' + require('./package.json').version + '; bot) AppleWebKit/534.34(KHTML, like Gecko) Chrome/13.0.764.0';
 
       _this.threads = [];
       var nbThreads = config.nbThreads || 1;
@@ -127,14 +129,26 @@ PhantomCrawl.prototype.checkFinish = function() {
 	for (var i = 0; i < this.threads.length; i++) {
 		if (!this.threads[i].isIdle()) return;
 	}
-	if (!urlStore.isEmpty()) return;
-	
-	console.log('Crawl done. Exiting');
-  console.log("Opened thread:", this.threads.length);
-	for (i = 0; i < this.threads.length; i++) {
-		this.threads[i].exit();
-    console.log("Thread #" + i + " exit");
-	}
+
+  urlStore.isEmpty().then(function(isEmpty){
+    console.log("isEmpty: ", isEmpty);
+    if (!isEmpty) return;
+
+    console.log('Crawl done. Exiting');
+    console.log("Opened thread:", this.threads.length);
+    for (i = 0; i < this.threads.length; i++) {
+      this.threads[i].exit();
+      console.log("Thread #" + i + " exit");
+    }
+  });
 };
 
 module.exports = PhantomCrawl;
+
+var nn = new PhantomCrawl(
+  {
+    url: 'http://www.verkkokauppa.com/',
+    maxDepth: 1,
+    subDomains: false
+  }
+);
