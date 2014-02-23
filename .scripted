@@ -1,9 +1,0 @@
-{
-	jshint: {
-		options: {
-			browser: true,
-			node: true,
-			eqnull: true
-		}
-	}
-}
